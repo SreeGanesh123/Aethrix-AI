@@ -69,35 +69,12 @@ process.on('unhandledRejection', (reason) => {
     console.error('Unhandled promise rejection:', reason);
 });
 
-function getAllowedOrigins() {
-    const localOrigins = [
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://127.0.0.1:5173',
-        'http://127.0.0.1:5174',
-    ];
-    const deployedOrigins = [
-        process.env.CLIENT_ORIGIN,
-        process.env.CLIENT_URL,
-        process.env.CORS_ORIGIN,
-        process.env.ALLOWED_ORIGINS,
-    ]
-        .filter(Boolean)
-        .flatMap((origin) => origin.split(','))
-        .map((origin) => origin.trim().replace(/\/$/, ''))
-        .filter(Boolean);
 
-    return [...new Set([...localOrigins, ...deployedOrigins])];
-}
 
 app.use(cors({
-    origin(origin, callback) {
-        if (!origin || getAllowedOrigins().includes(origin.replace(/\/$/, ''))) {
-            return callback(null, true);
-        }
+    origin: "*",
+    allowedOrigins: ["*"],
 
-        return callback(new Error(`Origin ${origin} is not allowed by CORS`));
-    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization']
