@@ -1,0 +1,207 @@
+import { useCallback, useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import ThemeToggle from "../components/ThemeToggle";
+import { getExamPassed, getStoredUser, setExamPassed, setCertificateMeta, createCertificateId, addCertificateToSession, getGradeFromScore, type CertificateRecord } from "../utils/auth";
+import { generateQuestionsWithAI, type GeneratedQuestion } from "../services/aiService";
+
+type Language = "JavaScript" | "Python" | "SQL";
+
+function buildUserSeed(email: string | undefined, language: string) {
+  return `${email ?? "guest"}-${language}-${Date.now()}`;
+}
+
+export default function AssessmentMCQ() {
+  const [searchParams] = useSearchParams();
+  const selectedLanguageFromUrl = (searchParams.get("language") as Language | null) ?? "JavaScript";
+  const storedUser = getStoredUser();
+
+  const [language, setLanguage] = useState<Language>(selectedLanguageFromUrl);
+  const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
+  const [submitted, setSubmitted] = useState(false);
+  const [score, setScore] = useState<number | null>(null);
+  const [wrongAnswers, setWrongAnswers] = useState<Array<{ question: string; selected: string | null; correct: string; explanation: string }>>([]);
+  const [passed, setPassed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadQuestions = useCallback(async (lang: Language) => {
+    setLoading(true);
+    setSubmitted(false);
+    setScore(null);
+    setWrongAnswers([]);
+    setError(null);
+    try {
+      const result = await generateQuestionsWithAI({
+        type: "mcq",
+        language: lang,
+        userSeed: buildUserSeed(storedUser?.email, lang),
+        questionCount: 20,
+      });
+      const qs = (result.questions ?? []) as GeneratedQuestion[];
+      setQuestions(qs);
+      setSelectedAnswers(Array(qs.length).fill(-1));
+    } catch {
+      setError("Failed to load AI questions. Please refresh and try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [storedUser?.email]);
+
+  useEffect(() => {
+    setLanguage(selectedLanguageFromUrl);
+    void loadQuestions(selectedLanguageFromUrl);
+    setPassed(getExamPassed(storedUser?.email));
+  }, [selectedLanguageFromUrl, loadQuestions, storedUser?.email]);
+
+  function submit() {
+    if (!storedUser?.email) {
+      setError("Please sign in before submitting so your certificate can be saved.");
+      return;
+    }
+    const questionScore = questions.reduce((sum, item, i) => selectedAnswers[i] === item.answer ? sum + 1 : sum, 0);
+    const wrongItems = questions
+      .map((item, i) => selectedAnswers[i] === item.answer ? null : {
+        question: item.question,
+        selected: selectedAnswers[i] >= 0 ? item.options[selectedAnswers[i]] : null,
+        correct: item.options[item.answer],
+        explanation: item.explanation,
+      })
+      .filter(Boolean) as typeof wrongAnswers;
+
+    setScore(questionScore);
+    setWrongAnswers(wrongItems);
+    setSubmitted(true);
+    setError(null);
+
+    const threshold = Math.ceil(questions.length * 0.7);
+    if (questionScore >= threshold) {
+      const certData: CertificateRecord = {
+        id: createCertificateId(),
+        issuedAt: new Date().toISOString(),
+        candidateName: storedUser.name || "Candidate",
+        candidateEmail: storedUser.email,
+        examType: "MCQ Assessment",
+        examName: `${language} MCQ Assessment`,
+        score: questionScore,
+        totalScore: questions.length,
+        grade: getGradeFromScore(questionScore, questions.length),
+        passStatus: "pass",
+        completedDate: new Date().toISOString(),
+      };
+      setCertificateMeta(storedUser.email, certData);
+      addCertificateToSession(storedUser.email, certData);
+      setExamPassed(storedUser.email);
+      setPassed(true);
+    } else {
+      setPassed(false);
+    }
+  }
+
+  return (
+    <main className="dashboard-page">
+      <header className="dashboard-header">
+        <Link to="/assessment" className="back-link"><ArrowLeft size={18} />Back to hub</Link>
+        <div>
+          <span>AETHRIX AI</span>
+          <h1>MCQ Assessment</h1>
+          <p>AI generates a unique set of questions for every candidate.</p>
+        </div>
+        <div className="dashboard-actions">
+          <ThemeToggle />
+          <Link to="/candidate" className="ghost-link">Candidate profile</Link>
+        </div>
+      </header>
+
+      <section className="dashboard-grid test-grid">
+        <article className="dash-card test-card grid-span-full">
+          <span className="card-kicker">{language} — AI generated</span>
+          <h2>Answer the quiz</h2>
+          <p>Questions are uniquely generated by AI for each candidate. Select the best answer and submit.</p>
+
+          {loading && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "24px 0", color: "var(--teal)" }}>
+              <Loader2 size={20} className="spin" style={{ animation: "spin 1s linear infinite" }} />
+              Generating your unique questions…
+            </div>
+          )}
+
+          {!loading && error && <p className="form-note" style={{ color: "#ff9aa5" }}>{error}</p>}
+
+          {!loading && questions.length > 0 && (
+            <>
+              <div className="mcq-list">
+                {questions.map((question, index) => (
+                  <div key={index} className="mcq-question-card">
+                    <p><strong>{index + 1}. {question.question}</strong></p>
+                    <div className="mcq-options">
+                      {question.options.map((option, optionIndex) => (
+                        <button
+                          key={optionIndex}
+                          type="button"
+                          className={selectedAnswers[index] === optionIndex ? "option selected" : "option"}
+                          onClick={() => {
+                            const next = [...selectedAnswers];
+                            next[index] = optionIndex;
+                            setSelectedAnswers(next);
+                          }}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="assessment-actions">
+                <button type="button" className="primary-cta" onClick={submit}>Submit answers</button>
+              </div>
+
+              {submitted && score !== null && (
+                <div className="submission-result">
+                  <div className="profile-ready">
+                    <CheckCircle2 size={18} />
+                    <span>Score: {score} / {questions.length}</span>
+                  </div>
+                  {error ? (
+                    <p className="form-note" style={{ color: "#ff9aa5" }}>{error}</p>
+                  ) : passed ? (
+                    <>
+                      <div className="profile-ready"><CheckCircle2 size={18} /><span>Congratulations! Certificate access unlocked.</span></div>
+                      <div className="profile-note">
+                        <p>Certificate access is now available on your Candidate Dashboard.</p>
+                        <Link to="/candidate" className="primary-cta compact-cta">Open Candidate Dashboard</Link>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="profile-note">
+                      <p>You need at least {Math.ceil(questions.length * 0.7)} correct answers to unlock the certificate.</p>
+                    </div>
+                  )}
+                  {wrongAnswers.length > 0 && (
+                    <div className="wrong-answers">
+                      <h3>Review wrong answers</h3>
+                      {wrongAnswers.map((item, i) => (
+                        <div key={i} className="wrong-answer-card">
+                          <p><strong>{item.question}</strong></p>
+                          <p>Your answer: {item.selected ?? "No answer selected"}</p>
+                          <p>Correct answer: {item.correct}</p>
+                          <p>{item.explanation}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {wrongAnswers.length === 0 && passed && (
+                    <div className="profile-ready"><CheckCircle2 size={18} /><span>Excellent! All answers correct.</span></div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </article>
+      </section>
+    </main>
+  );
+}
