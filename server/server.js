@@ -41,9 +41,6 @@ const sendEmail = asyncHandler(async (data) => {
   }
 
   const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
     service: "gmail",
     auth: {
       user: "sreeganeshyerraballi@gmail.com",
@@ -332,25 +329,12 @@ async function sendWithGmail(email, otp) {
 }
 
 async function sendWithSmtp(email, otp) {
-  // Prefer explicit SMTP env vars. If missing, return null so caller can fallback.
-  const host = "smtp.gmail.com";
-  const port = 465;
-  const user = "sreeganeshyerraballi@gmail.com";
-  const pass = "tzmt zexr pbxk iltd";
-
-  if (!host || !user || !pass) {
-    // Not configured for SMTP; let the caller try other providers (ethereal/gmail API)
-    return null;
-  }
-
-  const secure = port === 465; // true for 465, false for other ports
-
   const transporter = nodemailer.createTransport({
-    host,
-    port,
     service: "gmail",
-    secure,
-    auth: { user, pass },
+    auth: {
+      user: "sreeganeshyerraballi@gmail.com",
+      pass: "tzmt zexr pbxk iltd",
+    },
   });
 
   try {
