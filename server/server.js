@@ -347,7 +347,10 @@ async function sendWithSmtp(email, otp) {
   
 
   const transporter = nodemailer.createTransport({
-   service: 'gmail',    
+   service: 'gmail',   
+   host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: process.env.SMTP_SECURE === "true" || false, 
     auth: {
       user: 'aiaethrix@gmail.com',
       pass: 'kumn elqp wvja nrsb',
