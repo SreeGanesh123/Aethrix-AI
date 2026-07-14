@@ -27,19 +27,7 @@ const asyncHandler =
     }
   };
 
-function hasEmailCredentials() {
-  const user = "sreeganeshyerraballi@gmail.com";
-  const pass = "tzmt zexr pbxk iltd";
-  return Boolean(user && pass);
-}
-
 const sendEmail = asyncHandler(async (data) => {
-  if (!hasEmailCredentials()) {
-    throw new Error(
-      "Email credentials are not configured. Set SMTP_USER/SMTP_PASS or EMAIL_USERNAME/EMAIL_PASSWORD.",
-    );
-  }
-
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -49,7 +37,7 @@ const sendEmail = asyncHandler(async (data) => {
   });
 
   const mailOptions = {
-    from: "aiaethrix@gmail.com",
+    from: "sreeganeshyerraballi@gmail.com",
     to: data.to,
     subject: data.subject,
     text: data.message,
@@ -251,15 +239,17 @@ async function getSessionUser(req) {
 }
 
 async function sendWithConfiguredMailProvider(email, otp) {
-  const provider = (process.env.EMAIL_PROVIDER || "smtp").toLowerCase();
+  const provider = "smtp"; // Default to SMTP for now, can be extended to support other providers
   const hasGmailConfig = Boolean(
-    process.env.EMAIL_USERNAME && process.env.EMAIL_PASSWORD,
+    "sreeganeshyerraballi@gmail.com" && "tzmt zexr pbxk iltd",
   );
   const hasSmtpConfig = Boolean(
-    process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS,
+    "smtp.gmail.com" &&
+    "sreeganeshyerraballi@gmail.com" &&
+    "tzmt zexr pbxk iltd",
   );
 
-  if (!hasGmailConfig && !hasSmtpConfig && !hasEmailCredentials()) {
+  if (!hasGmailConfig && !hasSmtpConfig) {
     return null;
   }
 
@@ -339,7 +329,7 @@ async function sendWithSmtp(email, otp) {
 
   try {
     const info = await transporter.sendMail({
-      from: `"AETHRIX AI" <${user}>`,
+      from: `sreeganeshyerraballi@gmail.com`,
       to: email,
       subject: "AETHRIX AI secure verification code",
       text: buildOtpEmailText(otp),
@@ -352,31 +342,9 @@ async function sendWithSmtp(email, otp) {
       preview: nodemailer.getTestMessageUrl(info),
     };
   } catch (err) {
-    // Surface more actionable error but allow caller to fallback
     console.error("SMTP send error:", err && err.code ? err.code : err);
-    // Rethrow so upstream can decide how to handle (or return null if preferred)
     throw err;
   }
-}
-
-async function sendWithEthereal(email, otp) {
-  const testAccount = await nodemailer.createTestAccount();
-  const testTransport = nodemailer.createTransport({
-    host: testAccount.smtp.host,
-    port: testAccount.smtp.port,
-    secure: testAccount.smtp.secure,
-    auth: { user: testAccount.user, pass: testAccount.pass },
-  });
-
-  const info = await testTransport.sendMail({
-    from: `"AETHRIX AI" <${testAccount.user}>`,
-    to: email,
-    subject: "AETHRIX AI secure verification code (test)",
-    text: buildOtpEmailText(otp),
-    html: buildOtpEmailHtml(otp),
-  });
-
-  return nodemailer.getTestMessageUrl(info);
 }
 
 app.post("/api/auth/send-otp", async (req, res) => {
