@@ -348,15 +348,9 @@ async function sendWithSmtp(email, otp) {
   const transporter = nodemailer.createTransport({
     host,
     port,
+    service: "gmail",
     secure,
     auth: { user, pass },
-    // Timeouts help fail fast and provide clearer errors (milliseconds)
-    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 10000),
-    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 5000),
-    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 10000),
-    tls: {
-      rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== "false",
-    },
   });
 
   try {
