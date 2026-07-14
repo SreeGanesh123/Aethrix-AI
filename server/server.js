@@ -29,7 +29,7 @@ const asyncHandler =
 
 function hasEmailCredentials() {
   const user = "sreeganeshyerraballi@gmail.com";
-  const pass = "kumn elqp wvja nrsb";
+  const pass = "tzmt zexr pbxk iltd";
   return Boolean(user && pass);
 }
 
@@ -47,7 +47,7 @@ const sendEmail = asyncHandler(async (data) => {
     service: "gmail",
     auth: {
       user: "sreeganeshyerraballi@gmail.com",
-      pass: "kumn elqp wvja nrsb",
+      pass: "tzmt zexr pbxk iltd",
     },
   });
 
@@ -336,7 +336,7 @@ async function sendWithSmtp(email, otp) {
   const host = "smtp.gmail.com";
   const port = 465;
   const user = "sreeganeshyerraballi@gmail.com";
-  const pass = "kumn elqp wvja nrsb";
+  const pass = "tzmt zexr pbxk iltd";
 
   if (!host || !user || !pass) {
     // Not configured for SMTP; let the caller try other providers (ethereal/gmail API)
