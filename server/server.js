@@ -28,12 +28,8 @@ const asyncHandler =
   };
 
 function hasEmailCredentials() {
-  const user =
-    process.env.SMTP_USER ||
-    process.env.EMAIL_USERNAME ||
-    process.env.EMAIL_USER ||
-    "";
-  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASSWORD || "";
+  const user = "sreeganeshyerraballi@gmail.com";
+  const pass = "kumn elqp wvja nrsb";
   return Boolean(user && pass);
 }
 
@@ -45,24 +41,18 @@ const sendEmail = asyncHandler(async (data) => {
   }
 
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com",
-    port: Number(process.env.SMTP_PORT || process.env.EMAIL_PORT || 587),
-    secure:
-      process.env.SMTP_SECURE === "true" ||
-      process.env.EMAIL_SECURE === "true" ||
-      false,
-    service: process.env.EMAIL_SERVICE || "gmail",
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    service: "gmail",
     auth: {
-      user:
-        process.env.SMTP_USER ||
-        process.env.EMAIL_USERNAME ||
-        process.env.EMAIL_USER,
-      pass: process.env.SMTP_PASS || process.env.EMAIL_PASSWORD,
+      user: "sreeganeshyerraballi@gmail.com",
+      pass: "kumn elqp wvja nrsb",
     },
   });
 
   const mailOptions = {
-    from: data.from || '"AETHRIX AI" <aiaethrix@gmail.com>',
+    from: "aiaethrix@gmail.com",
     to: data.to,
     subject: data.subject,
     text: data.message,
@@ -100,12 +90,10 @@ app.use("/api/interviews", express.json({ limit: "50mb" }));
 // Return JSON error instead of HTML when JSON parsing fails (PowerShell/curl quoting issues)
 app.use((err, req, res, next) => {
   if (err?.type === "entity.too.large") {
-    return res
-      .status(413)
-      .json({
-        error:
-          "Request payload is too large. Please use a smaller image or file.",
-      });
+    return res.status(413).json({
+      error:
+        "Request payload is too large. Please use a smaller image or file.",
+    });
   }
 
   if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
@@ -344,32 +332,53 @@ async function sendWithGmail(email, otp) {
 }
 
 async function sendWithSmtp(email, otp) {
-  
+  // Prefer explicit SMTP env vars. If missing, return null so caller can fallback.
+  const host = "smtp.gmail.com";
+  const port = 465;
+  const user = "sreeganeshyerraballi@gmail.com";
+  const pass = "kumn elqp wvja nrsb";
+
+  if (!host || !user || !pass) {
+    // Not configured for SMTP; let the caller try other providers (ethereal/gmail API)
+    return null;
+  }
+
+  const secure = port === 465; // true for 465, false for other ports
 
   const transporter = nodemailer.createTransport({
-   service: 'gmail',   
-   host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: process.env.SMTP_SECURE === "true" || false, 
-    auth: {
-      user: 'aiaethrix@gmail.com',
-      pass: 'kumn elqp wvja nrsb',
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+    // Timeouts help fail fast and provide clearer errors (milliseconds)
+    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 10000),
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 5000),
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 10000),
+    tls: {
+      rejectUnauthorized: process.env.SMTP_TLS_REJECT_UNAUTHORIZED !== "false",
     },
   });
 
-  const info = await transporter.sendMail({
-    from: `"AETHRIX AI" <${process.env.SMTP_USER || process.env.EMAIL_USERNAME || process.env.EMAIL_USER}>`,
-    to: email,
-    subject: "AETHRIX AI secure verification code",
-    text: buildOtpEmailText(otp),
-    html: buildOtpEmailHtml(otp),
-  });
+  try {
+    const info = await transporter.sendMail({
+      from: `"AETHRIX AI" <${user}>`,
+      to: email,
+      subject: "AETHRIX AI secure verification code",
+      text: buildOtpEmailText(otp),
+      html: buildOtpEmailHtml(otp),
+    });
 
-  return {
-    provider: "smtp",
-    messageId: info.messageId || null,
-    preview: nodemailer.getTestMessageUrl(info),
-  };
+    return {
+      provider: "smtp",
+      messageId: info.messageId || null,
+      preview: nodemailer.getTestMessageUrl(info),
+    };
+  } catch (err) {
+    // Surface more actionable error but allow caller to fallback
+    console.error("SMTP send error:", err && err.code ? err.code : err);
+    // Rethrow so upstream can decide how to handle (or return null if preferred)
+    throw err;
+  }
 }
 
 async function sendWithEthereal(email, otp) {
@@ -588,12 +597,10 @@ app.post(
     }
 
     if (!isPasswordStrong(password)) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "Password must be at least 8 characters and include uppercase, lowercase, and a number",
-        });
+      return res.status(400).json({
+        error:
+          "Password must be at least 8 characters and include uppercase, lowercase, and a number",
+      });
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
